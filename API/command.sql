@@ -1,0 +1,1 @@
+UPDATE "transaction" SET ticker = ticker || '.PA' WHERE ticker NOT LIKE '%.PA';
