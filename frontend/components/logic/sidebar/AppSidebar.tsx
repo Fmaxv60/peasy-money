@@ -1,6 +1,9 @@
 "use client"
 
-import { Calendar, Home } from "lucide-react"
+import { 
+  Home,
+  CircleDollarSign
+} from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
@@ -26,7 +29,11 @@ export function AppSidebar() {
       url: "/dashboard",
       icon: Home,
     },
-    // Ajoute d'autres liens ici si nécessaire
+    {
+      title: "Transactions",
+      url: "/transactions",
+      icon: CircleDollarSign,
+    }
   ]
 
   return (
