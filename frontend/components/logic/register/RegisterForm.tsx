@@ -5,9 +5,20 @@ import { useRouter } from "next/navigation"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
-import { toast } from "sonner"
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from "@/components/ui/alert"
+import { AlertTriangle } from "lucide-react"
 
 export function RegisterForm() {
   const router = useRouter()
@@ -16,10 +27,18 @@ export function RegisterForm() {
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
+    setError(null)
+
+    if (password !== confirmPassword) {
+      setError("Les mots de passe ne correspondent pas")
+      setLoading(false)
+      return
+    }
 
     try {
       const res = await fetch("http://localhost:8000/api/auth/register", {
@@ -35,93 +54,112 @@ export function RegisterForm() {
       })
 
       if (!res.ok) {
-        const error = await res.json()
-        throw new Error(error.detail || "Erreur à l'inscription")
+        const errorData = await res.json()
+        throw new Error(errorData.detail || "Erreur à l'inscription")
       }
 
-      toast("Inscription réussie !", {
-        description: "Votre compte a été créé avec succès.",
-      })
-
       router.push("/login")
+    } catch (err: any) {
+      setError(err.message || "Une erreur est survenue")
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-[#03001e]">
-      <Card className="w-full max-w-sm border border-[#7303c0] bg-white/5 text-white backdrop-blur-md">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-background px-4">
+      {error && (
+        <div className="w-full max-w-sm mb-6">
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Erreur d'inscription</AlertTitle>
+            <AlertDescription>Un compte est déjà associé à cet email.</AlertDescription>
+          </Alert>
+        </div>
+      )}
+
+      <Card className="w-full max-w-sm shadow-md">
         <CardHeader>
-          <CardTitle className="text-center text-[#ec38bc]">Inscription</CardTitle>
+          <CardTitle className="text-center text-2xl">Créer un compte</CardTitle>
+          <CardDescription className="text-center text-sm text-muted-foreground">
+            Remplissez le formulaire pour créer votre compte.
+          </CardDescription>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+
+        <CardContent className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <Label htmlFor="username">Nom d'utilisateur</Label>
+              <Label htmlFor="username" className="mb-2 block">
+                Nom d'utilisateur
+              </Label>
               <Input
                 id="username"
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="bg-[#03001e] border-[#7303c0] text-white mt-2"
                 required
               />
             </div>
+
             <div>
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email" className="mb-2 block">
+                Email
+              </Label>
               <Input
                 id="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="bg-[#03001e] border-[#7303c0] text-white mt-2"
                 required
               />
             </div>
+
             <div>
-              <Label htmlFor="password">Mot de passe</Label>
+              <Label htmlFor="password" className="mb-2 block">
+                Mot de passe
+              </Label>
               <Input
                 id="password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="bg-[#03001e] border-[#7303c0] text-white mt-2"
                 required
               />
             </div>
+
             <div>
-              <Label htmlFor="confirmPassword">Confirmer le mot de passe</Label>
+              <Label htmlFor="confirmPassword" className="mb-2 block">
+                Confirmer le mot de passe
+              </Label>
               <Input
                 id="confirmPassword"
                 type="password"
                 value={confirmPassword}
-                onChange={(e) => 
-                    setConfirmPassword(e.target.value)
-                }
-                className="bg-[#03001e] border-[#7303c0] text-white mt-2"
+                onChange={(e) => setConfirmPassword(e.target.value)}
                 required
               />
             </div>
-                <Button
-                type="submit"
-                className={`w-full bg-[#7303c0] hover:bg-[#ec38bc] text-white ${
-                    password !== confirmPassword ? "opacity-50 cursor-not-allowed" : ""
-                }`}
-                disabled={loading || password !== confirmPassword}
-                >
-                {loading ? "Inscription..." : "S'inscrire"}
-                </Button>
-            </form>
-        
-            <Separator className="mt-6 border-t border-[#7303c0]" />
-            
-            <div className="text-center text-sm text-muted-foreground mt-4">
-                Tu as déjà un compte ? {" "}
-                <a href="/login" className="text-[#ec38bc] hover:underline font-medium">
-                    Se connecter
-                </a>
-            </div>
+
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={loading || password !== confirmPassword}
+            >
+              {loading ? "Inscription..." : "S'inscrire"}
+            </Button>
+          </form>
+
+          <Separator className="my-6" />
+
+          <div className="text-center text-sm text-muted-foreground">
+            Déjà un compte ?{" "}
+            <a
+              href="/login"
+              className="text-primary underline hover:opacity-80 font-medium"
+            >
+              Se connecter
+            </a>
+          </div>
         </CardContent>
       </Card>
     </div>

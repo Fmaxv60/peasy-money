@@ -6,13 +6,17 @@ import {
   SortingState,
   VisibilityState,
   getCoreRowModel,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
   useReactTable,
   flexRender,
 } from "@tanstack/react-table"
-
+import {
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { columns, Transaction } from "./columns"
 import {
   Table,
@@ -31,7 +35,7 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { ChevronDown } from "lucide-react"
+import { ChevronDown, Plus } from "lucide-react"
 import { fetchWithAuth } from "@/lib/auth"
 import { Skeleton } from "@/components/ui/skeleton"
 
@@ -48,6 +52,12 @@ export function DataTableTransaction() {
   const [pageSize, setPageSize] = React.useState(10)
   const firstCellRef = React.useRef<HTMLTableCellElement | null>(null)
   const [cellHeight, setCellHeight] = React.useState<number | null>(null)
+  const [open, setOpen] = React.useState(false)
+
+  const [ticker, setTicker] = React.useState("")
+  const [quantity, setQuantity] = React.useState("")
+  const [price, setPrice] = React.useState("")
+  const [date, setDate] = React.useState("")
 
   React.useEffect(() => {
     if (firstCellRef.current) {
@@ -55,31 +65,31 @@ export function DataTableTransaction() {
     }
   }, [firstCellRef.current])
 
-  React.useEffect(() => {
-    const fetchTransactions = async () => {
-      setLoading(true)
-      try {
-        const offset = pageIndex * pageSize
-        const res = await fetchWithAuth(
-          `http://127.0.0.1:8000/api/transaction/?user_id=1&page_size=${pageSize}&page=${offset}`
-        )
-        const transactions = await res.json()
-        setData(transactions)
-      } catch (error) {
-        console.error("Erreur lors du fetch :", error)
-      } finally {
-        setLoading(false)
-      }
+  const fetchTransactions = async () => {
+    setLoading(true)
+    try {
+      const offset = pageIndex * pageSize
+      const res = await fetchWithAuth(
+        `http://127.0.0.1:8000/api/transaction/?user_id=1&page_size=${pageSize}&page=${offset}`
+      )
+      const transactions = await res.json()
+      setData(transactions)
+    } catch (error) {
+      console.error("Erreur lors du fetch :", error)
+    } finally {
+      setLoading(false)
     }
-  
+  }
+
+  React.useEffect(() => {
     fetchTransactions()
-  }, [pageIndex, pageSize])  
+  }, [pageIndex, pageSize])
 
   const table = useReactTable({
     data,
     columns,
     manualPagination: true,
-    pageCount: -1, 
+    pageCount: -1,
     state: {
       pagination: {
         pageIndex,
@@ -113,25 +123,115 @@ export function DataTableTransaction() {
           }
           className="max-w-sm"
         />
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="ml-auto">
-              Colonnes <ChevronDown className="ml-2 h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {table.getAllColumns().filter((col) => col.getCanHide()).map((column) => (
-              <DropdownMenuCheckboxItem
-                key={column.id}
-                checked={column.getIsVisible()}
-                onCheckedChange={(value) => column.toggleVisibility(!!value)}
+        <div className="flex gap-2 ml-auto">
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-green-600 text-white hover:bg-green-700">
+                <Plus className="w-4 h-4" />
+                Ajouter une transaction
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[500px]">
+              <DialogHeader>
+                <DialogTitle>Ajouter une transaction</DialogTitle>
+              </DialogHeader>
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault()
+
+                  const payload = {
+                    ticker,
+                    quantity: Number(quantity),
+                    price: Number(price),
+                    date_of: date,
+                    type: "achat",
+                  }
+
+                  try {
+                    const res = await fetchWithAuth("http://127.0.0.1:8000/api/transaction/", {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                      },
+                      body: JSON.stringify(payload),
+                    })
+
+                    if (!res.ok) {
+                      throw new Error("Erreur lors de l'ajout de la transaction")
+                    }
+
+                    await fetchTransactions()
+                    setOpen(false)
+                    setTicker("")
+                    setQuantity("")
+                    setPrice("")
+                    setDate("")
+                  } catch (err) {
+                    console.error(err)
+                  }
+                }}
+                className="space-y-4"
               >
-                {column.id}
-              </DropdownMenuCheckboxItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+                <Input
+                  placeholder="Ticker"
+                  value={ticker}
+                  onChange={(e) => setTicker(e.target.value)}
+                  required
+                />
+                <Input
+                  placeholder="Quantité"
+                  type="number"
+                  value={quantity}
+                  onChange={(e) => setQuantity(e.target.value)}
+                  required
+                />
+                <Input
+                  placeholder="Prix d'achat"
+                  type="number"
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value)}
+                  required
+                />
+                <Input
+                  placeholder="Date"
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  required
+                />
+                <DialogFooter>
+                  <Button type="submit" className="bg-green-600 text-white hover:bg-green-700">
+                    Enregistrer
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline">
+                Colonnes <ChevronDown className="ml-2 h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {table
+                .getAllColumns()
+                .filter((col) => col.getCanHide())
+                .map((column) => (
+                  <DropdownMenuCheckboxItem
+                    key={column.id}
+                    checked={column.getIsVisible()}
+                    onCheckedChange={(value) => column.toggleVisibility(!!value)}
+                  >
+                    {column.id}
+                  </DropdownMenuCheckboxItem>
+                ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
+
       <div className="rounded-md border">
         <Table>
           <TableHeader>
@@ -178,6 +278,7 @@ export function DataTableTransaction() {
           </TableBody>
         </Table>
       </div>
+
       <div className="flex items-center justify-between py-4">
         <div className="flex items-center gap-2">
           <span>Afficher</span>

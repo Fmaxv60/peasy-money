@@ -79,7 +79,7 @@ export function TickerChart() {
 
         <div className="absolute right-4 top-4 flex gap-2">
           <Select value={timeRange} onValueChange={setTimeRange}>
-            <SelectTrigger className="w-32">
+            <SelectTrigger>
               <SelectValue placeholder="Range" />
             </SelectTrigger>
             <SelectContent className="rounded-xl">
