@@ -46,3 +46,9 @@ class DailyQuantityByTicker(SQLModel):
 class PEAHistoryPoint(SQLModel):
     date: date
     value: float
+
+class PEAHistory(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    date: date
+    User: int = Field(foreign_key="user.id")
+    total_invested: float

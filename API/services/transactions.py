@@ -194,9 +194,11 @@ def get_user_pea_history(
     try:
         delta = parse_period(period)
         if delta is None:
-            raise ValueError("Invalid period")
-    except ValueError as e:
-        return {"error": str(e)}
+            raise HTTPException(status_code=400, detail="Invalid period")
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
     end_date = date.today()
     start_date = end_date - delta

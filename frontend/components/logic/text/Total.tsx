@@ -52,7 +52,7 @@ export function TotalSummary() {
             style: "currency",
             currency: "EUR",
         })
-      } ({diff > 0 ? "+" : diff < 0 ? "−" : ""}{formattedDiff})
+      } ({diff > 0 ? "+" : ""}{formattedDiff})
     </p>
   )
 }
