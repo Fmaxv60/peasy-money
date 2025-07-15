@@ -39,7 +39,7 @@ import { ChevronDown, Plus } from "lucide-react"
 import { fetchWithAuth } from "@/lib/auth"
 import { Skeleton } from "@/components/ui/skeleton"
 
-export function DataTableTransaction() {
+export function DataTableTransaction({ onTransactionAdded }: { onTransactionAdded?: () => void }) {
   const [data, setData] = React.useState<Transaction[]>([])
   const [loading, setLoading] = React.useState(true)
   const [sorting, setSorting] = React.useState<SortingState>([
@@ -161,6 +161,7 @@ export function DataTableTransaction() {
                     }
 
                     await fetchTransactions()
+                    onTransactionAdded?.()
                     setOpen(false)
                     setTicker("")
                     setQuantity("")

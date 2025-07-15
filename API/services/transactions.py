@@ -5,7 +5,7 @@ from fastapi import Depends, HTTPException, Query
 from sqlalchemy import func
 from sqlmodel import Session, select
 from db import get_session
-from models import DailyQuantity, Transaction, User
+from models import DailyQuantity, PEAHistory, Transaction, User
 from routes.auth import get_current_user
 from dateutil.relativedelta import relativedelta
 import yfinance as yf
@@ -146,47 +146,59 @@ def get_user_total_price_by_date(
 ):
     target_date = date_param or date.today()
     
-    transactions = session.exec(
-        select(Transaction.ticker, Transaction.quantity, Transaction.type)
-        .where(
-            Transaction.user_id == current_user.id,
-            Transaction.date_of <= target_date
-        )
-    ).all()
+    if target_date != date.today():
+        history = session.exec(
+            select(PEAHistory)
+            .where(
+                PEAHistory.User == current_user.id,
+                PEAHistory.date == target_date
+            )
+        ).first()
 
-    quantities_by_ticker = defaultdict(float)
-    for tx in transactions:
-        if tx.type == "achat":
-            quantities_by_ticker[tx.ticker] += tx.quantity
-        elif tx.type == "vente":
-            quantities_by_ticker[tx.ticker] -= tx.quantity
+        if history:
+            return history.total_invested
+    else:
+        transactions = session.exec(
+            select(Transaction.ticker, Transaction.quantity, Transaction.type)
+            .where(
+                Transaction.user_id == current_user.id,
+                Transaction.date_of <= target_date
+            )
+        ).all()
 
-    total = 0.0
+        quantities_by_ticker = defaultdict(float)
+        for tx in transactions:
+            if tx.type == "achat":
+                quantities_by_ticker[tx.ticker] += tx.quantity
+            elif tx.type == "vente":
+                quantities_by_ticker[tx.ticker] -= tx.quantity
 
-    for ticker, total_quantity in quantities_by_ticker.items():
-        try:
-            yf_ticker = yf.Ticker(ticker)
+        total = 0.0
 
-            history = yf_ticker.history(period="30d", interval="1d")
-            valid_dates = history[history.index.date <= target_date]
+        for ticker, total_quantity in quantities_by_ticker.items():
+            try:
+                yf_ticker = yf.Ticker(ticker)
 
-            if not valid_dates.empty:
-                price = valid_dates["Close"].iloc[-1]
-            else:
+                history = yf_ticker.history(period="30d", interval="1d")
+                valid_dates = history[history.index.date <= target_date]
+
+                if not valid_dates.empty:
+                    price = valid_dates["Close"].iloc[-1]
+                else:
+                    continue
+
+                if price is None:
+                    continue
+
+                total += price * total_quantity
+
+            except Exception as e:
                 continue
-
-            if price is None:
-                continue
-
-            total += price * total_quantity
-
-        except Exception as e:
-            continue
 
     return total
 
 
-def get_user_pea_history(
+def get_user_daily_pea_values(
     period: str = Query(default="5a"),
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user)
@@ -203,86 +215,64 @@ def get_user_pea_history(
     end_date = date.today()
     start_date = end_date - delta
 
-    # Obtenir les dates de changement de quantités
+    # Récupérer toutes les transactions de l'utilisateur jusqu'à aujourd'hui
     transactions = session.exec(
         select(Transaction)
         .where(Transaction.user_id == current_user.id)
         .order_by(Transaction.date_of)
     ).all()
 
-    quantity_change_dates = set()
-    current_holdings = defaultdict(float)
-    last_snapshot = {}
-
-    for tx in transactions:
-        if tx.type == "achat":
-            current_holdings[tx.ticker] += tx.quantity
-        elif tx.type == "vente":
-            current_holdings[tx.ticker] -= tx.quantity
-
-        snapshot = {
-            ticker: round(qty, 6)
-            for ticker, qty in current_holdings.items()
-            if qty > 0
-        }
-
-        if snapshot != last_snapshot:
-            quantity_change_dates.add(tx.date_of)
-            last_snapshot = snapshot.copy()
-
-    # Générer des dates régulières (tous les 7 jours ou tous les mois)
-    interval_dates = set()
-    # Comparaison entre dates pour éviter TypeError
-    one_month_ago = end_date - relativedelta(months=1)
-    if start_date < one_month_ago:
-        # période > 1 mois => points tous les 7 jours
-        current = start_date
-        while current <= end_date:
-            interval_dates.add(current)
-            current += timedelta(days=7)
-    else:
-        # période <= 1 mois => points tous les mois
-        current = start_date
-        while current <= end_date:
-            interval_dates.add(current)
-            current += relativedelta(months=1)
-
-    # Fusion des deux types de dates
-    all_dates = sorted(quantity_change_dates.union(interval_dates))
+    # Pré-calcul des quantités cumulées par date
+    quantities_by_date = {}
+    holdings = defaultdict(float)
+    current_index = 0
+    current_tx = transactions[current_index] if transactions else None
 
     history_data = []
+    ticker_price_cache = {}
 
-    for target_date in all_dates:
-        transactions_until_date = session.exec(
-            select(Transaction.ticker, Transaction.quantity, Transaction.type)
-            .where(
-                Transaction.user_id == current_user.id,
-                Transaction.date_of <= target_date
-            )
-        ).all()
+    current_day = start_date
+    while current_day <= end_date:
+        # Appliquer les transactions jusqu’à la date courante
+        while current_tx and current_tx.date_of <= current_day:
+            if current_tx.type == "achat":
+                holdings[current_tx.ticker] += current_tx.quantity
+            elif current_tx.type == "vente":
+                holdings[current_tx.ticker] -= current_tx.quantity
+            current_index += 1
+            if current_index < len(transactions):
+                current_tx = transactions[current_index]
+            else:
+                current_tx = None
 
-        quantities_by_ticker = defaultdict(float)
-        for tx in transactions_until_date:
-            if tx.type == "achat":
-                quantities_by_ticker[tx.ticker] += tx.quantity
-            elif tx.type == "vente":
-                quantities_by_ticker[tx.ticker] -= tx.quantity
-
+        # Calculer la valeur du portefeuille à la date courante
         total = 0.0
-        for ticker, total_quantity in quantities_by_ticker.items():
-            try:
-                yf_ticker = yf.Ticker(ticker)
-                history = yf_ticker.history(period="30d", interval="1d")
-                valid_prices = history[history.index.date <= target_date]
-                if not valid_prices.empty:
-                    price = valid_prices["Close"].iloc[-1]
-                    total += price * total_quantity
-            except:
+        for ticker, quantity in holdings.items():
+            if quantity <= 0:
                 continue
 
+            if ticker not in ticker_price_cache:
+                try:
+                    yf_ticker = yf.Ticker(ticker)
+                    history = yf_ticker.history(period="max", interval="1d")
+                    ticker_price_cache[ticker] = history
+                except:
+                    continue
+
+            history = ticker_price_cache.get(ticker)
+            if history is None:
+                continue
+
+            valid_prices = history[history.index.date <= current_day]
+            if not valid_prices.empty:
+                price = valid_prices["Close"].iloc[-1]
+                total += price * quantity
+
         history_data.append({
-            "date": target_date.isoformat(),
-            "value": total
+            "date": current_day.isoformat(),
+            "value": round(total, 2)
         })
+
+        current_day += timedelta(days=1)
 
     return history_data

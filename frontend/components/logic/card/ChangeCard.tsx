@@ -41,6 +41,8 @@ export function ChangeCard() {
     }
 
     fetchTotals()
+    const interval = setInterval(fetchTotals, 60 * 1000)
+    return () => clearInterval(interval)
   }, [])
 
   const { difference, formattedDiff, percentageDiff, trendIcon, trendColor } = React.useMemo(() => {

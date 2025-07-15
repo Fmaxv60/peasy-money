@@ -59,7 +59,7 @@ async def get_all_tickers(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Get all tickers for the authenticated user.
+    Get all tickers name for the authenticated user.
     """
     return get_user_all_tickers(session, current_user)
 
@@ -70,7 +70,7 @@ async def get_daily_quantity_by_ticker(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Get the daily quantity of each ticker for the authenticated user.
+    Get the daily quantity of each ticker for the authenticated user when the quantity changes.
     """
     return get_user_daily_quantity_by_ticker(session, current_user)
 
@@ -81,6 +81,9 @@ async def get_daily_quantity_by_ticker(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user)
 ):
+    """
+    Get the daily quantity of selected ticker for the authenticated user when the quantity changes.
+    """
     daily_changes_subquery = (
         select(
             Transaction.date_of.label("date"),
@@ -118,11 +121,64 @@ async def get_daily_quantity_by_ticker(
     return formatted_results
 
 
+@router.get("/ticker/price", response_model=Dict[str, float], tags=["Transactions"])
+def get_user_repartition_by_ticker(
+    date_param: Optional[date] = Query(default=None),
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+) -> Dict[str, float]:
+    target_date = date_param or date.today()
+
+    transactions = session.exec(
+        select(Transaction.ticker, Transaction.quantity, Transaction.type)
+        .where(
+            Transaction.user_id == current_user.id,
+            Transaction.date_of <= target_date
+        )
+    ).all()
+
+    # 1. Agréger les quantités restantes par ticker
+    quantities_by_ticker = defaultdict(float)
+    for tx in transactions:
+        if tx.type == "achat":
+            quantities_by_ticker[tx.ticker] += tx.quantity
+        elif tx.type == "vente":
+            quantities_by_ticker[tx.ticker] -= tx.quantity
+
+    # 2. Récupérer les prix et calculer les valeurs totales par ticker
+    repartition = {}
+    for ticker, quantity in quantities_by_ticker.items():
+        if quantity <= 0:
+            continue  # ignorer les tickers entièrement vendus
+
+        try:
+            yf_ticker = yf.Ticker(ticker)
+            history = yf_ticker.history(period="30d", interval="1d")
+            valid_dates = history[history.index.date <= target_date]
+
+            if valid_dates.empty:
+                continue
+
+            price = valid_dates["Close"].iloc[-1]
+            if price is None:
+                continue
+
+            repartition[ticker] = round(price * quantity, 2)
+
+        except Exception:
+            continue  # ignorer les erreurs de récupération
+
+    return repartition
+
+
 @router.get("/price/total_invest", response_model=float, tags=["Transactions"])
 def get_total_invest_price(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user)
 ):
+    """
+    Get the total invested price for the authenticated user.
+    """
     return get_user_total_invest_price(session, current_user)
 
 
@@ -132,6 +188,9 @@ def get_total_price_by_date(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user)
 ):
+    """ 
+    Get the total price for a specific day or today if no date is provided.
+    """
     return get_user_total_price_by_date(date_param, session, current_user)
 
 @router.get("/price/total_history", response_model=List[PEAHistoryPoint], tags=["Transactions"])
@@ -140,7 +199,10 @@ def get_pea_history(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user)
 ):
-    return get_user_pea_history(period, session, current_user)
+    """ 
+    Get the PEA history for the authenticated user for a certain period.
+    """
+    return get_user_daily_pea_values(period, session, current_user)
 
 # -------------------------- POST --------------------------
 

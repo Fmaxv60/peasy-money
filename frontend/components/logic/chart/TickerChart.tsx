@@ -67,6 +67,8 @@ export function TickerChart() {
     }
 
     fetchPeaHistory()
+    const interval = setInterval(fetchPeaHistory, 5 * 60 * 1000)
+    return () => clearInterval(interval)
   }, [timeRange])
 
   return (
@@ -83,8 +85,8 @@ export function TickerChart() {
               <SelectValue placeholder="Range" />
             </SelectTrigger>
             <SelectContent className="rounded-xl">
-              <SelectItem value="5a">5 dernières années</SelectItem>
-              <SelectItem value="1a">1 dernière année</SelectItem>
+              <SelectItem value="5y">5 dernières années</SelectItem>
+              <SelectItem value="1y">1 dernière année</SelectItem>
               <SelectItem value="3m">3 derniers mois</SelectItem>
               <SelectItem value="1m">1 dernier mois</SelectItem>
               <SelectItem value="7d">7 derniers jours</SelectItem>
@@ -117,6 +119,7 @@ export function TickerChart() {
                 minTickGap={32}
                 tickFormatter={(value) =>
                   new Date(value).toLocaleDateString("fr-FR", {
+                    year: "numeric",
                     month: "short",
                     day: "numeric",
                   })
@@ -128,6 +131,7 @@ export function TickerChart() {
                 tickMargin={2}
                 width={40}
                 tickFormatter={(value) => `${value.toFixed(0)} €`}
+                domain={['dataMin', 'auto']}
               />
               <ChartTooltip
                 cursor={false}
@@ -135,6 +139,7 @@ export function TickerChart() {
                   <ChartTooltipContent
                     labelFormatter={(value) =>
                       new Date(value).toLocaleDateString("fr-FR", {
+                        year: "numeric",
                         month: "short",
                         day: "numeric",
                       })

@@ -10,7 +10,7 @@ class TransactionType(str, Enum):
 class Transaction(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     type: TransactionType
-    ticker: str
+    ticker: str = Field(foreign_key="ticker.symbol")
     quantity: int
     price: float
     date_of: date
@@ -52,3 +52,8 @@ class PEAHistory(SQLModel, table=True):
     date: date
     User: int = Field(foreign_key="user.id")
     total_invested: float
+
+class Ticker(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    name: str
+    symbol: str

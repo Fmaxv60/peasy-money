@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from routes import auth, transaction, user, cron
+from routes import auth, transaction, user, cron, ticker
 from db import init_db
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -34,5 +34,6 @@ def on_startup():
 
 app.include_router(auth.router, prefix="/api/auth", tags=["Auth"])
 app.include_router(transaction.router, prefix="/api/transaction")
-app.include_router(user.router, prefix="/api/user", tags=['User'])
+app.include_router(ticker.router, prefix="/api/ticker", tags=["Ticker"])
 app.include_router(cron.router, prefix="/api/cron", tags=['Cron'])
+app.include_router(user.router, prefix="/api/user", tags=['User'])

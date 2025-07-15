@@ -13,25 +13,35 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { fetchWithAuth } from "@/lib/auth"
 
-export function SummaryCard() {
+export function InvestedCard() {
   const [total, setTotal] = React.useState(0)
   const [totalInvest, setTotalInvest] = React.useState(0)
+  const [yesterdayTotal, setYesterdayTotal] = React.useState<number | null>(null)
   const [loading, setLoading] = React.useState(true)
+
+  const getYesterdayDate = () => {
+    const yesterday = new Date()
+    yesterday.setDate(yesterday.getDate() - 1)
+    return yesterday.toISOString().split("T")[0]
+  }
 
   React.useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true)
-        const [resTotal, resInvest] = await Promise.all([
+        const [resTotal, resInvest, resYesterday] = await Promise.all([
           fetchWithAuth("http://127.0.0.1:8000/api/transaction/price/total"),
           fetchWithAuth("http://127.0.0.1:8000/api/transaction/price/total_invest"),
+          fetchWithAuth(`http://127.0.0.1:8000/api/transaction/price/total?date_param=${getYesterdayDate()}`),
         ])
-        const [priceTotal, priceInvest] = await Promise.all([
+        const [priceTotal, priceInvest, priceYesterday] = await Promise.all([
           resTotal.json(),
           resInvest.json(),
+          resYesterday.json(),
         ])
         setTotal(priceTotal)
         setTotalInvest(priceInvest)
+        setYesterdayTotal(priceYesterday)
       } catch (error) {
         console.error("Erreur lors du fetch :", error)
       } finally {
@@ -60,16 +70,27 @@ export function SummaryCard() {
     return <span className="text-gray-500 text-xs">=</span>
   }
 
+  const diff = total - (yesterdayTotal ?? 0)
+  let diffText = formatCurrency(diff)
+  if (diff > 0) {
+    diffText = "+" + formatCurrency(diff)
+  }
+
   return (
     <Card className="@container/card w-full">
       <CardHeader className="relative">
         <CardDescription>Total PEA</CardDescription>
         <CardTitle className="@[250px]/card:text-3xl text-2xl font-semibold tabular-nums">
-          {loading ? (
-            <Skeleton className="h-10 w-1/2" />
-          ) : (
-            formatCurrency(total)
-          )}
+            {loading ? (
+                <Skeleton className="h-10 w-1/2" />
+            ) : (
+                <>
+                {formatCurrency(total) + " (" + diffText + ")"}
+                <div className="text-sm text-muted-foreground">
+                    {formatCurrency(totalInvest)} investis
+                </div>
+                </>
+            )}
         </CardTitle>
         <div className="absolute right-4 top-4">
           <Badge variant="outline" className="flex gap-1 rounded-lg text-xs">

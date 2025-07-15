@@ -1,13 +1,11 @@
 "use client"
 
-import { TrendingUp } from "lucide-react"
-import { LabelList, Pie, PieChart } from "recharts"
+import { useEffect, useState } from "react"
+import { Pie, PieChart, LabelList } from "recharts"
 
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -15,46 +13,84 @@ import {
   ChartConfig,
   ChartContainer,
   ChartTooltip,
-  ChartTooltipContent,
 } from "@/components/ui/chart"
+import { fetchWithAuth } from "@/lib/auth"
 
-export const description = "A pie chart with a label list"
+type CapitalData = {
+  [ticker: string]: number
+}
 
-const chartData = [
-  { browser: "chrome", visitors: 275, fill: "var(--color-chrome)" },
-  { browser: "safari", visitors: 200, fill: "var(--color-safari)" },
-  { browser: "firefox", visitors: 187, fill: "var(--color-firefox)" },
-  { browser: "edge", visitors: 173, fill: "var(--color-edge)" },
-  { browser: "other", visitors: 90, fill: "var(--color-other)" },
-]
+type DataEntry = {
+  ticker: string
+  amount: number
+  fill: string
+}
 
-const chartConfig = {
-  visitors: {
-    label: "Visitors",
-  },
-  chrome: {
-    label: "Chrome",
-    color: "var(--chart-1)",
-  },
-  safari: {
-    label: "Safari",
-    color: "var(--chart-2)",
-  },
-  firefox: {
-    label: "Firefox",
-    color: "var(--chart-3)",
-  },
-  edge: {
-    label: "Edge",
-    color: "var(--chart-4)",
-  },
-  other: {
-    label: "Other",
-    color: "var(--chart-5)",
-  },
-} satisfies ChartConfig
+// ✅ Tooltip personnalisé
+const CustomTooltip = ({ active, payload }: any) => {
+  if (active && payload && payload.length > 0) {
+    const { name, value } = payload[0]
+    return (
+      <div className="rounded-md bg-background p-2 text-sm shadow">
+        <div className="text-muted-foreground text-xs font-medium">{name}</div>
+        <div className="text-foreground font-semibold">{value.toFixed(2)} €</div>
+      </div>
+    )
+  }
+  return null
+}
 
 export function RepartitionPieChart() {
+  const [chartData, setChartData] = useState<DataEntry[]>([])
+  const [chartConfig, setChartConfig] = useState<ChartConfig>({})
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const tickersRes = await fetchWithAuth("http://localhost:8000/api/transaction/tickers/")
+        const tickers: string[] = await tickersRes.json()
+
+        const pricesRes = await fetchWithAuth("http://localhost:8000/api/transaction/ticker/price/")
+        const prices: CapitalData = await pricesRes.json()
+
+        const colorPalette = [
+          "var(--chart-1)",
+          "var(--chart-2)",
+          "var(--chart-3)",
+          "var(--chart-4)",
+          "var(--chart-5)",
+          "var(--chart-6)",
+          "var(--chart-7)",
+          "var(--chart-8)",
+        ]
+
+        const data: DataEntry[] = tickers.map((ticker, index) => ({
+          ticker,
+          amount: prices[ticker] ?? 0,
+          fill: colorPalette[index % colorPalette.length],
+        }))
+
+        const config: ChartConfig = {
+          amount: { label: "Montant (€)" },
+        }
+
+        tickers.forEach((ticker, index) => {
+          config[ticker] = {
+            label: ticker,
+            color: colorPalette[index % colorPalette.length],
+          }
+        })
+
+        setChartData(data)
+        setChartConfig(config)
+      } catch (error) {
+        console.error("Erreur de chargement des données :", error)
+      }
+    }
+
+    fetchData()
+  }, [])
+
   return (
     <Card className="flex flex-col">
       <CardHeader className="items-center pb-0">
@@ -66,12 +102,10 @@ export function RepartitionPieChart() {
           className="[&_.recharts-text]:fill-background mx-auto aspect-square max-h-[250px]"
         >
           <PieChart>
-            <ChartTooltip
-              content={<ChartTooltipContent nameKey="visitors" hideLabel />}
-            />
-            <Pie data={chartData} dataKey="visitors">
+            <ChartTooltip content={<CustomTooltip />} />
+            <Pie data={chartData} dataKey="amount" nameKey="ticker">
               <LabelList
-                dataKey="browser"
+                dataKey="none"
                 className="fill-background"
                 stroke="none"
                 fontSize={12}
