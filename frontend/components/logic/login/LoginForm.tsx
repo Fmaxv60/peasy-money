@@ -52,7 +52,7 @@ export function LoginForm() {
       const data = await res.json()
       localStorage.setItem("token", data.access_token)
 
-      router.push("/dashboard")
+      router.push("/dashboard/home")
     } catch (err: any) {
       setError(err.message || "Une erreur est survenue")
     } finally {
@@ -67,7 +67,7 @@ export function LoginForm() {
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
             <AlertTitle>Erreur de connexion</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
+            <AlertDescription>Mauvaise combinaison email/mot de passe</AlertDescription>
           </Alert>
         </div>
       )}

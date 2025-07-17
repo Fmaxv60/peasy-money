@@ -13,3 +13,7 @@ class UserRead(BaseModel):
 @router.get("/me", response_model=UserRead)
 def read_current_user(current_user: User = Depends(get_current_user)):
     return current_user
+
+@router.get("/subscription")
+def read_subscription(current_user: User = Depends(get_current_user)):
+    return current_user.subscription

@@ -16,7 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "@/components/ui/dialog";
+} from "@/components/ui/dialog"
 import { columns, Transaction } from "./columns"
 import {
   Table,
@@ -26,7 +26,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import {
@@ -35,9 +34,11 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { ChevronDown, Plus } from "lucide-react"
+import { AlertCircle, ChevronDown, Plus } from "lucide-react"
 import { fetchWithAuth } from "@/lib/auth"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { toast } from "sonner"
 
 export function DataTableTransaction({ onTransactionAdded }: { onTransactionAdded?: () => void }) {
   const [data, setData] = React.useState<Transaction[]>([])
@@ -58,6 +59,11 @@ export function DataTableTransaction({ onTransactionAdded }: { onTransactionAdde
   const [quantity, setQuantity] = React.useState("")
   const [price, setPrice] = React.useState("")
   const [date, setDate] = React.useState("")
+
+  // Auto-complétion
+  const [tickers, setTickers] = React.useState<{ [name: string]: string }>({})
+  const [suggestions, setSuggestions] = React.useState<string[]>([])
+  const [isTickerFocused, setIsTickerFocused] = React.useState(false)
 
   React.useEffect(() => {
     if (firstCellRef.current) {
@@ -84,6 +90,31 @@ export function DataTableTransaction({ onTransactionAdded }: { onTransactionAdde
   React.useEffect(() => {
     fetchTransactions()
   }, [pageIndex, pageSize])
+
+  // Charger les tickers
+  React.useEffect(() => {
+    const fetchTickers = async () => {
+      const res = await fetchWithAuth("http://127.0.0.1:8000/api/ticker/")
+      if (!res.ok) return
+      const data = await res.json()
+      setTickers(data)
+    }
+    fetchTickers()
+  }, [])
+
+  // Mettre à jour les suggestions
+  React.useEffect(() => {
+    if (ticker.trim().length === 0) {
+      setSuggestions([])
+      return
+    }
+
+    const filtered = Object.keys(tickers).filter(name =>
+      name.toLowerCase().includes(ticker.toLowerCase())
+    )
+    setSuggestions(filtered.slice(0, 5))
+  }, [ticker, tickers])
+
 
   const table = useReactTable({
     data,
@@ -131,7 +162,7 @@ export function DataTableTransaction({ onTransactionAdded }: { onTransactionAdde
                 Ajouter une transaction
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px]">
+            <DialogContent className="max-w-[700px] max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Ajouter une transaction</DialogTitle>
               </DialogHeader>
@@ -157,7 +188,39 @@ export function DataTableTransaction({ onTransactionAdded }: { onTransactionAdde
                     })
 
                     if (!res.ok) {
-                      throw new Error("Erreur lors de l'ajout de la transaction")
+                      if (res.status === 400) {
+                        toast("Ticker non valide", {
+                          description: "Le ticker que vous avez entré n'est pas valide. Assurez-vous d'utiliser le format correct.",
+                          style: {
+                            backgroundColor: "#fef2f2",
+                            color: "#b91c1c",
+                            border: "1px solid #b91c1c",
+                          },
+                          className: "shadow-md rounded-md",
+                          descriptionClassName: "text-xs text-red-700",
+                          actionButtonStyle: {
+                            backgroundColor: "#b91c1c",
+                            color: "#fff",
+                          }
+                        })
+                      }
+                      else {
+                        toast("Erreur d'ajout de la transaction", {
+                          description: "Une erreur est survenue lors de l'ajout de la transaction.",
+                          style: {
+                            backgroundColor: "#fef2f2",
+                            color: "#b91c1c",
+                            border: "1px solid #b91c1c",
+                          },
+                          className: "shadow-md rounded-md",
+                          descriptionClassName: "text-xs text-red-700",
+                          actionButtonStyle: {
+                            backgroundColor: "#b91c1c",
+                            color: "#fff",
+                          }
+                        })
+                      }
+                      return
                     }
 
                     await fetchTransactions()
@@ -173,12 +236,42 @@ export function DataTableTransaction({ onTransactionAdded }: { onTransactionAdde
                 }}
                 className="space-y-4"
               >
-                <Input
-                  placeholder="Ticker"
-                  value={ticker}
-                  onChange={(e) => setTicker(e.target.value)}
-                  required
-                />
+                <Alert className="border-l-4 pl-4 shadow-sm">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Information</AlertTitle>
+                  <AlertDescription>
+                    Toujours ajouter .PA à la fin du ticker pour les actions PEA.
+                  </AlertDescription>
+                </Alert>
+                {/* Champ Ticker avec suggestions */}
+                <div className="relative">
+                  <Input
+                    placeholder="Ticker"
+                    value={ticker}
+                    onChange={(e) => setTicker(e.target.value)}
+                    onFocus={() => setIsTickerFocused(true)}
+                    onBlur={() => setTimeout(() => setIsTickerFocused(false), 150)}
+                    required
+                    autoComplete="off"
+                  />
+                  {isTickerFocused && ticker.length > 0 && suggestions.length > 0 && (
+                    <ul className="absolute z-10 w-full bg-white border border-gray-300 rounded mt-1 max-h-40 overflow-y-auto shadow">
+                      {suggestions.map((name) => (
+                        <li
+                          key={name}
+                          onClick={() => {
+                            setTicker(tickers[name])
+                            setIsTickerFocused(false)
+                          }}
+                          className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
+                        >
+                          {name} ({tickers[name]})
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
                 <Input
                   placeholder="Quantité"
                   type="number"

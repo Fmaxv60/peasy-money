@@ -47,7 +47,7 @@ export function TickerChart() {
   const [timeRange, setTimeRange] = useState("1m")
 
   useEffect(() => {
-    if (isMobile) setTimeRange("7j")
+    if (isMobile) setTimeRange("1m")
   }, [isMobile])
 
   useEffect(() => {

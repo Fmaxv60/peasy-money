@@ -19,10 +19,6 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}) {
       throw new Error("Token expiré")
     }
   
-    if (!res.ok) {
-      throw new Error(`Erreur API : ${res.statusText}`)
-    }
-  
     return res
   }
   

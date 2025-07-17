@@ -87,7 +87,8 @@ export function InvestedCard() {
                 <>
                 {formatCurrency(total) + " (" + diffText + ")"}
                 <div className="text-sm text-muted-foreground">
-                    {formatCurrency(totalInvest)} investis
+                    {formatCurrency(totalInvest)} investis <br />
+                    {formatCurrency(total - totalInvest)} de gains depuis le début
                 </div>
                 </>
             )}

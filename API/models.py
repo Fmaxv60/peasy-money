@@ -31,7 +31,7 @@ class User(SQLModel, table=True):
     email: str = Field(index=True, unique=True)
     hashed_password: str
     created_at: datetime = Field(default_factory=datetime.now)
-    # subscription: str = Field(default="free")
+    subscription: str = Field(default="free")
 
     transactions: list[Transaction] = Relationship(back_populates="user")
 

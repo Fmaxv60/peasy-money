@@ -14,7 +14,7 @@ Log your trades, monitor your portfolio evolution, and prep your way to a maybe 
 
 app = FastAPI(
     title="Peasy Money API",
-    version="0.0.1",
+    version="0.1.0",
     description=description,
     swagger_ui_parameters={"defaultModelsExpandDepth": -1}
 )

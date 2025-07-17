@@ -17,16 +17,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           position="bottom-right" 
           toastOptions={{
             style: {
-              backgroundColor: "#1a0033", // fond toast
-              color: "#ffffff",           // texte
-              border: "1px solid #7303c0", // bordure violette
+              backgroundColor: "#f5f5f5",
+              color: "#222222",
+              border: "1px solid #cccccc",
             },
-            className: "shadow-lg rounded-lg",
-            descriptionClassName: "text-sm text-[#ec38bc]",
+            className: "shadow-md rounded-md",
+            descriptionClassName: "text-xs text-gray-700",
             actionButtonStyle: {
-              backgroundColor: "#7303c0",
-              color: "#ffffff",
-            },
+              backgroundColor: "#cccccc",
+              color: "#222222",
+            }
           }}
         />
       </body>

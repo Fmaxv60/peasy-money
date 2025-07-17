@@ -26,12 +26,12 @@ export function AppSidebar() {
   const items = [
     {
       title: "Home",
-      url: "/dashboard",
+      url: "/dashboard/home",
       icon: Home,
     },
     {
       title: "Transactions",
-      url: "/transactions",
+      url: "/dashboard/transactions",
       icon: CircleDollarSign,
     }
   ]

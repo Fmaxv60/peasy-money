@@ -1,5 +1,6 @@
 from collections import defaultdict
 from fastapi import APIRouter, Depends, HTTPException, Query
+import requests
 from sqlmodel import select, Session
 from sqlalchemy import func, cast, Date, case
 from typing import List, Dict, Optional
@@ -213,11 +214,26 @@ def create_transaction(
     current_user: User = Depends(get_current_user)
 ):
     try:
+        yf_ticker = yf.Ticker(transaction_in.ticker)
+        info = {}
+        try:
+            info = yf_ticker.info
+        except requests.exceptions.RequestException:
+            raise HTTPException(status_code=503, detail="Erreur réseau avec le service ticker")
+        
+        if not info or 'regularMarketPrice' not in info:
+            raise HTTPException(status_code=400, detail="Symbole ticker invalide")
+
+        transaction_in.ticker = transaction_in.ticker.upper()
         transaction = Transaction(**transaction_in.model_dump(), user_id=current_user.id)
         session.add(transaction)
         session.commit()
         session.refresh(transaction)
         return transaction
+
+    except HTTPException:
+        raise  # remonte l'HTTPException pour FastAPI la gérer
+
     except Exception as e:
         session.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Erreur interne : {str(e)}")
