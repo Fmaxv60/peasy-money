@@ -237,3 +237,22 @@ def create_transaction(
     except Exception as e:
         session.rollback()
         raise HTTPException(status_code=500, detail=f"Erreur interne : {str(e)}")
+    
+# -------------------------- DELETE --------------------------
+
+@router.delete("/{transaction_id}", response_model=Transaction, tags=["Transactions"])
+def delete_transaction(
+    transaction_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Delete a transaction for the authenticated user.
+    """
+    transaction = session.get(Transaction, transaction_id)
+    if not transaction or transaction.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Transaction non trouvée")
+
+    session.delete(transaction)
+    session.commit()
+    return transaction
