@@ -77,6 +77,86 @@ def update_pea_history_yesterday(session: Session):
     session.commit()
 
 
+def update_pea_history_for_month(session: Session, year: int, month: int):
+    from calendar import monthrange
+
+    # Liste des jours du mois
+    _, days_in_month = monthrange(year, month)
+    target_dates = [date(year, month, day) for day in range(1, days_in_month + 1)]
+
+    # Étape 1 : Trouver toutes les transactions pertinentes (avant ou pendant le mois)
+    last_day = date(year, month, days_in_month)
+    transactions = session.exec(
+        select(Transaction).where(Transaction.date_of <= last_day)
+    ).all()
+
+    user_transactions = defaultdict(list)
+    all_tickers = set()
+
+    for tx in transactions:
+        user_transactions[tx.user_id].append(tx)
+        all_tickers.add(tx.ticker)
+
+    # Étape 2 : Télécharger les prix des tickers
+    try:
+        price_data = yf.download(
+            tickers=list(all_tickers),
+            start=target_dates[0] - timedelta(days=30),
+            end=last_day + timedelta(days=1),
+            interval="1d",
+            group_by="ticker",
+            progress=False,
+            auto_adjust=True,
+            threads=True,
+        )
+    except Exception as e:
+        print("Erreur yfinance bulk:", e)
+        return
+
+    # Étape 3 : Pour chaque date du mois
+    for current_date in target_dates:
+        for user_id, txs in user_transactions.items():
+
+            # Vérifie si une entrée existe déjà
+            existing = session.exec(
+                select(PEAHistory)
+                .where(PEAHistory.User == user_id, PEAHistory.date == current_date)
+            ).first()
+
+            if existing:
+                continue  # Ne pas recalculer
+
+            # Calcul des quantités cumulées avant ou jusqu'à ce jour
+            quantities_by_ticker = defaultdict(float)
+            for tx in txs:
+                if tx.date_of <= current_date:
+                    if tx.type == "achat":
+                        quantities_by_ticker[tx.ticker] += tx.quantity
+                    elif tx.type == "vente":
+                        quantities_by_ticker[tx.ticker] -= tx.quantity
+
+            total = 0.0
+            for ticker, total_quantity in quantities_by_ticker.items():
+                try:
+                    df = price_data[ticker] if len(all_tickers) > 1 else price_data
+                    valid_dates = df[df.index.date <= current_date]
+                    if not valid_dates.empty:
+                        price = valid_dates["Close"].iloc[-1]
+                        total += price * total_quantity
+                except Exception:
+                    continue
+
+            # Insertion
+            pea_entry = PEAHistory(
+                date=current_date,
+                User=user_id,
+                total_invested=total
+            )
+            session.add(pea_entry)
+
+    session.commit()
+
+
 def update_ticker(session: Session):
     # Récupérer tous les tickers uniques
     tickers = session.exec(select(Transaction.ticker)).unique().all()
